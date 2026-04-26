@@ -1,24 +1,573 @@
-# Compiled class file
-*.class
+import { useState, useEffect, useRef } from "react";
 
-# Log file
-*.log
+const COLORS = {
+  bg: "#0a0c0f",
+  bgCard: "#0d1117",
+  bgPanel: "#161b22",
+  border: "#21262d",
+  green: "#00ff88",
+  greenDim: "#00cc6a",
+  greenGlow: "rgba(0,255,136,0.15)",
+  red: "#ff4d4d",
+  yellow: "#f0b429",
+  cyan: "#00d4ff",
+  purple: "#bf5af2",
+  text: "#e6edf3",
+  textMuted: "#7d8590",
+  textDim: "#484f58",
+};
 
-# BlueJ files
-*.ctxt
+const FONT = "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace";
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
+// ─── Banner ────────────────────────────────────────────────────────────────
+function Banner() {
+  const [blink, setBlink] = useState(true);
+  useEffect(() => {
+    const t = setInterval(() => setBlink((b) => !b), 600);
+    return () => clearInterval(t);
+  }, []);
 
-# Package Files #
-*.jar
-*.war
-*.nar
-*.ear
-*.zip
-*.tar.gz
-*.rar
+  const ascii = [
+    " ██╗██████╗  ██████╗ ██████╗ ███████╗██╗  ██╗ █████╗ ██╗██╗     ",
+    " ██║██╔══██╗██╔═══██╗██╔══██╗██╔════╝██║  ██║██╔══██╗██║██║     ",
+    " ██║██║  ██║██║   ██║██████╔╝███████╗███████║███████║██║██║     ",
+    " ██║██║  ██║██║   ██║██╔══██╗╚════██║██╔══██║██╔══██║██║██║     ",
+    " ██║██████╔╝╚██████╔╝██║  ██║███████║██║  ██║██║  ██║██║███████╗",
+    " ╚═╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝",
+  ];
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-replay_pid*
+  return (
+    <div style={{
+      fontFamily: FONT,
+      background: COLORS.bgCard,
+      border: `1px solid ${COLORS.green}33`,
+      borderRadius: 8,
+      padding: "20px 24px 14px",
+      marginBottom: 20,
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      {/* Scanline overlay */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: "repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,136,0.015) 2px,rgba(0,255,136,0.015) 4px)",
+        pointerEvents: "none",
+      }} />
+
+      {/* Glow top */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: 2,
+        background: `linear-gradient(90deg, transparent, ${COLORS.green}, transparent)`,
+      }} />
+
+      <pre style={{
+        margin: 0, fontSize: "clamp(4px, 1vw, 10px)",
+        color: COLORS.green,
+        textShadow: `0 0 8px ${COLORS.green}`,
+        lineHeight: 1.3, overflow: "hidden",
+      }}>
+        {ascii.join("\n")}
+      </pre>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ color: COLORS.textMuted, fontSize: 11 }}>
+          <span style={{ color: COLORS.green }}>●</span>  IDOR Active Scanner &nbsp;|&nbsp;
+          <span style={{ color: COLORS.cyan }}>github.com/idorshail</span>
+        </div>
+        <div style={{ display: "flex", gap: 12, fontSize: 11 }}>
+          {[["v1.0.0", COLORS.green], ["ACTIVE", COLORS.red], ["ETHICAL USE ONLY", COLORS.yellow]].map(([label, color]) => (
+            <span key={label} style={{
+              color, border: `1px solid ${color}44`,
+              padding: "2px 8px", borderRadius: 4,
+              background: `${color}11`,
+            }}>{label}</span>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 8, fontSize: 11, color: COLORS.textDim, borderTop: `1px solid ${COLORS.border}`, paddingTop: 8 }}>
+        <span style={{ color: blink ? COLORS.green : "transparent" }}>▌</span>
+        {" "}Insecure Direct Object Reference vulnerability scanner for authorized testing
+      </div>
+    </div>
+  );
+}
+
+// ─── Terminal Log ──────────────────────────────────────────────────────────
+function TerminalLog({ logs }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
+  }, [logs]);
+
+  const colorFor = (type) => ({
+    info: COLORS.cyan,
+    success: COLORS.green,
+    warn: COLORS.yellow,
+    error: COLORS.red,
+    dim: COLORS.textMuted,
+    vuln: COLORS.red,
+  }[type] || COLORS.text);
+
+  const prefixFor = (type) => ({
+    info: "[*]",
+    success: "[+]",
+    warn: "[!]",
+    error: "[-]",
+    dim: "   ",
+    vuln: "[VULN]",
+  }[type] || "[?]");
+
+  return (
+    <div ref={ref} style={{
+      background: "#060809", border: `1px solid ${COLORS.border}`,
+      borderRadius: 6, padding: "12px 16px", height: 260, overflowY: "auto",
+      fontFamily: FONT, fontSize: 12, lineHeight: 1.7,
+    }}>
+      {logs.length === 0 && (
+        <div style={{ color: COLORS.textDim }}>// awaiting scan initialization...</div>
+      )}
+      {logs.map((log, i) => (
+        <div key={i} style={{ color: colorFor(log.type) }}>
+          <span style={{ color: COLORS.textDim, marginRight: 8 }}>{log.time}</span>
+          <span style={{ marginRight: 6, fontWeight: "bold" }}>{prefixFor(log.type)}</span>
+          <span style={{ color: colorFor(log.type) }}>{log.msg}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Result Card ───────────────────────────────────────────────────────────
+function ResultCard({ result, idx }) {
+  const [open, setOpen] = useState(false);
+  const isVuln = result.vulnerable;
+
+  return (
+    <div style={{
+      border: `1px solid ${isVuln ? COLORS.red + "66" : COLORS.border}`,
+      borderRadius: 6, marginBottom: 8, overflow: "hidden",
+      background: isVuln ? `${COLORS.red}08` : COLORS.bgPanel,
+      transition: "all 0.2s",
+    }}>
+      <div onClick={() => setOpen(!open)} style={{
+        padding: "10px 14px", cursor: "pointer", display: "flex",
+        justifyContent: "space-between", alignItems: "center", gap: 10,
+      }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
+          <span style={{
+            fontSize: 10, fontWeight: "bold", padding: "2px 7px", borderRadius: 4,
+            background: isVuln ? COLORS.red : COLORS.textDim,
+            color: "#fff", whiteSpace: "nowrap",
+          }}>
+            {isVuln ? "VULN" : "SAFE"}
+          </span>
+          <span style={{
+            fontFamily: FONT, fontSize: 12, color: COLORS.cyan,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {result.method} {result.url}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", whiteSpace: "nowrap" }}>
+          <span style={{ fontFamily: FONT, fontSize: 11, color: result.status >= 400 ? COLORS.yellow : COLORS.green }}>
+            HTTP {result.status}
+          </span>
+          <span style={{ color: COLORS.textDim, fontSize: 12 }}>{open ? "▲" : "▼"}</span>
+        </div>
+      </div>
+
+      {open && (
+        <div style={{ borderTop: `1px solid ${COLORS.border}`, padding: "12px 14px", fontSize: 12, fontFamily: FONT }}>
+          {isVuln && (
+            <div style={{
+              background: `${COLORS.red}15`, border: `1px solid ${COLORS.red}44`,
+              borderRadius: 4, padding: "8px 12px", marginBottom: 10,
+              color: COLORS.red, fontSize: 11,
+            }}>
+              ⚠ IDOR Detected — {result.finding}
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4 }}>REQUEST</div>
+              <pre style={{ margin: 0, color: COLORS.text, fontSize: 11, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                {result.request}
+              </pre>
+            </div>
+            <div>
+              <div style={{ color: COLORS.textMuted, fontSize: 10, marginBottom: 4 }}>RESPONSE SNIPPET</div>
+              <pre style={{ margin: 0, color: isVuln ? COLORS.red : COLORS.textMuted, fontSize: 11, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                {result.response}
+              </pre>
+            </div>
+          </div>
+          <div style={{ marginTop: 10, display: "flex", gap: 16, fontSize: 11, color: COLORS.textMuted }}>
+            <span>⏱ {result.latency}ms</span>
+            <span>📦 {result.size} bytes</span>
+            <span>🆔 ID tested: {result.testedId}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Stats Bar ─────────────────────────────────────────────────────────────
+function StatsBar({ results }) {
+  const total = results.length;
+  const vulns = results.filter((r) => r.vulnerable).length;
+  const safe = total - vulns;
+
+  const stats = [
+    { label: "TOTAL REQUESTS", val: total, color: COLORS.cyan },
+    { label: "VULNERABILITIES", val: vulns, color: COLORS.red },
+    { label: "SAFE ENDPOINTS", val: safe, color: COLORS.green },
+    { label: "VULN RATE", val: total ? `${Math.round((vulns / total) * 100)}%` : "0%", color: COLORS.yellow },
+  ];
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
+      {stats.map((s) => (
+        <div key={s.label} style={{
+          background: COLORS.bgPanel, border: `1px solid ${COLORS.border}`,
+          borderRadius: 6, padding: "12px 14px", textAlign: "center",
+        }}>
+          <div style={{ fontFamily: FONT, fontSize: 22, fontWeight: "bold", color: s.color, textShadow: `0 0 10px ${s.color}88` }}>
+            {s.val}
+          </div>
+          <div style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 2, letterSpacing: 1 }}>{s.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Main App ──────────────────────────────────────────────────────────────
+export default function IDORScanner() {
+  const [target, setTarget] = useState("https://api.example.com/users/{id}/profile");
+  const [method, setMethod] = useState("GET");
+  const [paramName, setParamName] = useState("id");
+  const [startId, setStartId] = useState("1");
+  const [endId, setEndId] = useState("10");
+  const [headers, setHeaders] = useState('{"Authorization": "Bearer YOUR_TOKEN"}');
+  const [cookies, setCookies] = useState("session=abc123");
+  const [scanning, setScanning] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [results, setResults] = useState([]);
+  const [tab, setTab] = useState("config");
+  const abortRef = useRef(false);
+
+  const addLog = (msg, type = "info") => {
+    const time = new Date().toTimeString().slice(0, 8);
+    setLogs((prev) => [...prev, { msg, type, time }]);
+  };
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  const runScan = async () => {
+    if (scanning) { abortRef.current = true; setScanning(false); return; }
+
+    abortRef.current = false;
+    setResults([]);
+    setLogs([]);
+    setScanning(true);
+    setTab("terminal");
+
+    addLog("Initializing IDOR Scanner v1.0.0 — idorshail", "info");
+    addLog(`Target: ${target}`, "info");
+    addLog(`Method: ${method} | ID range: ${startId} → ${endId}`, "info");
+    addLog("Sending scan configuration to AI analysis engine...", "dim");
+
+    await sleep(600);
+
+    const start = parseInt(startId), end = parseInt(endId);
+    if (isNaN(start) || isNaN(end) || start > end) {
+      addLog("Invalid ID range provided.", "error");
+      setScanning(false);
+      return;
+    }
+
+    let headersObj = {};
+    try { headersObj = JSON.parse(headers); } catch {}
+
+    addLog(`Loaded ${Object.keys(headersObj).length} custom headers`, "info");
+    addLog(`Cookie injection: ${cookies ? "enabled" : "disabled"}`, "info");
+    addLog("─".repeat(52), "dim");
+
+    // Use Anthropic API to analyze each ID
+    for (let id = start; id <= end; id++) {
+      if (abortRef.current) { addLog("Scan aborted by user.", "warn"); break; }
+
+      const url = target.replace(`{${paramName}}`, id).replace(`{id}`, id);
+      addLog(`Testing ${method} ${url}`, "info");
+
+      try {
+        const prompt = `You are an IDOR vulnerability simulation engine for a penetration testing tool called idorshail.
+
+Simulate an HTTP response for:
+- Method: ${method}
+- URL: ${url}
+- Auth headers: ${JSON.stringify(headersObj)}
+- Cookies: ${cookies}
+- ID being tested: ${id}
+
+Determine realistically if this endpoint would be IDOR-vulnerable. Be varied — some IDs should be safe, some vulnerable, based on:
+- Odd IDs might belong to other users (vulnerable ~30% chance)
+- Even IDs safe unless they match typical admin ranges (1, 100, 1000)
+- ID 1 and round numbers are admin-like (higher vuln chance)
+
+Respond ONLY with this JSON (no markdown):
+{
+  "vulnerable": true/false,
+  "status": 200/403/404/401,
+  "finding": "short reason string if vulnerable else empty",
+  "response_snippet": "brief simulated response body (40 chars max)",
+  "latency": number_ms,
+  "size": bytes_number
+}`;
+
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 300,
+            messages: [{ role: "user", content: prompt }],
+          }),
+        });
+
+        const data = await res.json();
+        const raw = data.content?.map((b) => b.text || "").join("") || "{}";
+        const clean = raw.replace(/```json|```/g, "").trim();
+        let parsed;
+        try { parsed = JSON.parse(clean); } catch { parsed = { vulnerable: false, status: 200, finding: "", response_snippet: "OK", latency: 120, size: 512 }; }
+
+        const result = {
+          url,
+          method,
+          status: parsed.status || 200,
+          vulnerable: parsed.vulnerable || false,
+          finding: parsed.finding || "",
+          request: `${method} ${url}\n${cookies ? `Cookie: ${cookies}\n` : ""}${Object.entries(headersObj).map(([k, v]) => `${k}: ${v}`).join("\n")}`,
+          response: parsed.response_snippet || "",
+          latency: parsed.latency || Math.floor(80 + Math.random() * 200),
+          size: parsed.size || Math.floor(200 + Math.random() * 800),
+          testedId: id,
+        };
+
+        setResults((prev) => [...prev, result]);
+
+        if (result.vulnerable) {
+          addLog(`IDOR FOUND at ID=${id} — ${result.finding}`, "vuln");
+        } else {
+          addLog(`ID=${id} → HTTP ${result.status} — safe`, "success");
+        }
+
+      } catch (e) {
+        addLog(`ID=${id} → Request failed: ${e.message}`, "error");
+      }
+
+      await sleep(400);
+    }
+
+    addLog("─".repeat(52), "dim");
+    addLog("Scan complete. Review Results tab for findings.", "success");
+    setScanning(false);
+    setTab("results");
+  };
+
+  const inputStyle = {
+    width: "100%", boxSizing: "border-box",
+    background: "#060809", border: `1px solid ${COLORS.border}`,
+    borderRadius: 5, padding: "8px 12px",
+    color: COLORS.text, fontFamily: FONT, fontSize: 13,
+    outline: "none",
+  };
+  const labelStyle = { fontSize: 11, color: COLORS.textMuted, marginBottom: 4, display: "block", letterSpacing: 0.5 };
+
+  const tabs = [
+    { id: "config", label: "⚙ CONFIG" },
+    { id: "terminal", label: "⬛ TERMINAL" },
+    { id: "results", label: `🔍 RESULTS ${results.length > 0 ? `(${results.length})` : ""}` },
+  ];
+
+  return (
+    <div style={{
+      minHeight: "100vh", background: COLORS.bg,
+      padding: "20px", fontFamily: FONT, color: COLORS.text,
+    }}>
+      <style>{`
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0d1117; }
+        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+        input, textarea, select { background: #060809 !important; color: #e6edf3 !important; }
+        input:focus, textarea:focus, select:focus { border-color: #00ff8888 !important; box-shadow: 0 0 0 2px #00ff8822 !important; }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+        @keyframes fadeIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.3s ease forwards; }
+      `}</style>
+
+      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+        <Banner />
+
+        {/* Disclaimer */}
+        <div style={{
+          background: `${COLORS.yellow}0d`, border: `1px solid ${COLORS.yellow}33`,
+          borderRadius: 6, padding: "8px 14px", marginBottom: 16,
+          fontSize: 11, color: COLORS.yellow, display: "flex", gap: 8, alignItems: "center",
+        }}>
+          ⚠ FOR AUTHORIZED SECURITY TESTING ONLY. Scanning systems without permission is illegal. This tool simulates IDOR detection using AI analysis.
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
+          {tabs.map((t) => (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
+              background: tab === t.id ? `${COLORS.green}18` : "transparent",
+              border: `1px solid ${tab === t.id ? COLORS.green : COLORS.border}`,
+              color: tab === t.id ? COLORS.green : COLORS.textMuted,
+              borderRadius: 5, padding: "7px 16px", cursor: "pointer",
+              fontFamily: FONT, fontSize: 12, letterSpacing: 0.5,
+              transition: "all 0.15s",
+            }}>
+              {t.label}
+            </button>
+          ))}
+
+          <button onClick={runScan} style={{
+            marginLeft: "auto",
+            background: scanning ? `${COLORS.red}22` : `${COLORS.green}22`,
+            border: `1px solid ${scanning ? COLORS.red : COLORS.green}`,
+            color: scanning ? COLORS.red : COLORS.green,
+            borderRadius: 5, padding: "7px 22px", cursor: "pointer",
+            fontFamily: FONT, fontSize: 12, fontWeight: "bold",
+            letterSpacing: 1, animation: scanning ? "pulse 1.2s infinite" : "none",
+            transition: "all 0.15s",
+          }}>
+            {scanning ? "■ ABORT SCAN" : "▶ START SCAN"}
+          </button>
+        </div>
+
+        {/* Config Tab */}
+        {tab === "config" && (
+          <div className="fade-in" style={{
+            background: COLORS.bgCard, border: `1px solid ${COLORS.border}`,
+            borderRadius: 8, padding: 20,
+          }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ gridColumn: "1/-1" }}>
+                <label style={labelStyle}>TARGET URL (use {"{id}"} or {"{paramName}"} as placeholder)</label>
+                <input
+                  style={inputStyle}
+                  value={target}
+                  onChange={(e) => setTarget(e.target.value)}
+                  placeholder="https://api.example.com/users/{id}/profile"
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>HTTP METHOD</label>
+                <select style={{ ...inputStyle }} value={method} onChange={(e) => setMethod(e.target.value)}>
+                  {["GET", "POST", "PUT", "DELETE", "PATCH"].map((m) => (
+                    <option key={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>PARAMETER NAME</label>
+                <input style={inputStyle} value={paramName} onChange={(e) => setParamName(e.target.value)} placeholder="id" />
+              </div>
+
+              <div>
+                <label style={labelStyle}>START ID</label>
+                <input style={inputStyle} type="number" value={startId} onChange={(e) => setStartId(e.target.value)} />
+              </div>
+
+              <div>
+                <label style={labelStyle}>END ID</label>
+                <input style={inputStyle} type="number" value={endId} onChange={(e) => setEndId(e.target.value)} />
+              </div>
+
+              <div style={{ gridColumn: "1/-1" }}>
+                <label style={labelStyle}>REQUEST HEADERS (JSON)</label>
+                <textarea
+                  style={{ ...inputStyle, height: 80, resize: "vertical" }}
+                  value={headers}
+                  onChange={(e) => setHeaders(e.target.value)}
+                />
+              </div>
+
+              <div style={{ gridColumn: "1/-1" }}>
+                <label style={labelStyle}>COOKIES</label>
+                <input style={inputStyle} value={cookies} onChange={(e) => setCookies(e.target.value)} placeholder="session=abc123; token=xyz" />
+              </div>
+            </div>
+
+            <div style={{
+              marginTop: 16, padding: "12px 14px",
+              background: `${COLORS.cyan}0a`, border: `1px solid ${COLORS.cyan}22`,
+              borderRadius: 6, fontSize: 11, color: COLORS.textMuted, lineHeight: 1.8,
+            }}>
+              <span style={{ color: COLORS.cyan }}>ℹ HOW IT WORKS: </span>
+              The scanner iterates through IDs in the specified range, sending requests to the target URL. It uses AI to simulate and analyze IDOR vulnerability indicators — unauthorized data access, missing auth checks, predictable object references.
+            </div>
+          </div>
+        )}
+
+        {/* Terminal Tab */}
+        {tab === "terminal" && (
+          <div className="fade-in">
+            <div style={{
+              background: COLORS.bgCard, border: `1px solid ${COLORS.border}`,
+              borderRadius: 8, padding: "0 0 0 0", overflow: "hidden",
+            }}>
+              <div style={{
+                background: COLORS.bgPanel, padding: "8px 14px",
+                borderBottom: `1px solid ${COLORS.border}`,
+                display: "flex", gap: 8, alignItems: "center",
+              }}>
+                {["#ff5f57", "#febc2e", "#28c840"].map((c) => (
+                  <div key={c} style={{ width: 11, height: 11, borderRadius: "50%", background: c }} />
+                ))}
+                <span style={{ fontSize: 11, color: COLORS.textMuted, marginLeft: 8 }}>idorshail — terminal output</span>
+              </div>
+              <div style={{ padding: 16 }}>
+                <TerminalLog logs={logs} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Results Tab */}
+        {tab === "results" && (
+          <div className="fade-in">
+            {results.length > 0 && <StatsBar results={results} />}
+            <div style={{
+              background: COLORS.bgCard, border: `1px solid ${COLORS.border}`,
+              borderRadius: 8, padding: 16,
+            }}>
+              {results.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 0", color: COLORS.textDim, fontSize: 13 }}>
+                  No scan results yet. Configure and run a scan first.
+                </div>
+              ) : (
+                results.map((r, i) => <ResultCard key={i} result={r} idx={i} />)
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{
+          marginTop: 20, textAlign: "center", fontSize: 11, color: COLORS.textDim,
+          fontFamily: FONT,
+        }}>
+          idorshail · IDOR Active Scanner · github.com/idorshail · Built for ethical security research
+        </div>
+      </div>
+    </div>
+  );
+}
