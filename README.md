@@ -139,7 +139,7 @@ The scanner works in three stages:
 ### Clone & Install
 
 ```bash
-git clone https://github.com/idorshail/idorshail.git
+https://github.com/CyberShailendra1/idorshail.git
 cd idorshail
 pip install -r requirements.txt
 ```
@@ -446,7 +446,7 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 <div align="center">
 
-Made with 🔴 by **[@idorshail](https://github.com/idorshail)**
+Made with 🔴 by **[@idorshail](https://github.com/cybershailendra1)**
 
 *Find bugs. Get bounties. Stay ethical.*
 
